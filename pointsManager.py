@@ -32,6 +32,8 @@ from expandCircle import expandCircleUntillPoint
 from expandEllipse import expandEllipseUntillPoint
 from equality import equal, all_equal, any_equal, not_equal, any_not_equal
 from exportToUNet import exportToUNet
+import json
+from bson import json_util
 #from shapeData import ShapeData
 
 def drawCross(pic,x,y,rgb=(255,0,0),L=10):
@@ -73,7 +75,7 @@ def fitCircle(points):
     points = np.array(points, dtype=np.int64)
     center, radius = cv2.minEnclosingCircle(np.array(points))
     return center, radius
-
+    
 """
     This class manager several point groups (shapes) in an image.
     
@@ -781,7 +783,7 @@ class PointsManager:
             if len(shapePointsCurrentXYWrite[t])>0:
                 newFramesWithShapes += 1
         
-        if np.abs(currentFrame-self.lastBackupFrame)>=50 or newFramesWithShapes>=10:
+        if np.abs(currentFrame-self.lastBackupFrame)>=5 or newFramesWithShapes>=3:
             self.saveDataBackup()
         #if np.abs(currentFrame-self.lastBackupFrame)>=10 or newFramesWithShapes>=2:
             #self.saveDataBackup()
@@ -1592,6 +1594,14 @@ class PointsManager:
         #print('dataShapeBorder: ',dataShapeBorder)
         
         now = datetime.datetime.now()
+        if type(dataShapes) is not list:
+            dataShapes = dataShapes.tolist()
+        if type(dataShapeBorder) is not list:
+            dataShapeBorder = dataShapeBorder.tolist()
+        if type(dataShapeID) is not list:
+            dataShapeID = dataShapeID.tolist()
+        if type(dataShapeZ) is not list:
+            dataShapeZ = dataShapeZ.tolist()
         data = {'shapes' : dataShapes
                 , 'shape border' : dataShapeBorder
                 , 'shape ID' : dataShapeID
@@ -1599,13 +1609,20 @@ class PointsManager:
                 , 'frame skip' : self.frameSkip
                 , 'organoidTracker version' : self.organoidTrackerVersion
                 , 'saving date & time' : now}
-        data = np.array(data,dtype=object)
+        #data = np.array(data,dtype=object)
         
         """
             Save to file
         """
-        print('   Saving all shape data to: '+outputFilename+'.npy...')
-        np.save(outputFilename, data)
+        if outputFilename.endswith('.npy'):
+            outputFilename = outputFilename.replace('.npy','.json')
+        if not outputFilename.endswith('.json'):
+            outputFilename += '.json'
+        
+        print('   Saving all shape data to: '+outputFilename+'...')
+        #np.save(outputFilename, data)
+        with open(outputFilename, 'w') as outfile:
+            json.dump(data, outfile, default=json_util.default)
         
         print('   Done!')
         
@@ -1622,6 +1639,15 @@ class PointsManager:
         self.frameSkip = frameSkip
         
     def getBackupTimedate(self):
+        backupFilename = self.trackingDirectory + 'shapes.backup.json'
+        if os.path.exists(backupFilename):
+            with open(backupFilename, 'r') as f:
+                data = json.load(f, object_hook=json_util.object_hook)
+                
+            if 'saving date & time' in data:
+                return data['saving date & time']
+        
+        """
         backupFilename = self.trackingDirectory + 'shapes.backup.npy'
         
         if os.path.exists(backupFilename):
@@ -1629,6 +1655,8 @@ class PointsManager:
             
             if 'saving date & time' in data:
                 return data['saving date & time']
+        """
+        
         return None
         
     def loadShapes(self, loadDir, inputFilename):
@@ -1637,14 +1665,25 @@ class PointsManager:
         if DEBUG:
             inputFilename = 'D:/2018122_MIS_SOK015.nd2_tracking/shapes.npy'
             print('DEBUG: setting input filename to: ',inputFilename)
+        
+        inputFilenameJson = None
+        if inputFilename.endswith('.json'):
+            inputFilenameJson = copy.deepcopy(inputFilename)
+        if inputFilename.endswith('.npy'):
+            inputFilenameJson = inputFilename.replace('.npy', '.json')
+        
         # Make sure the file exists:
-        if not os.path.exists(inputFilename):
+        if not os.path.exists(inputFilename) and not os.path.exists(inputFilenameJson):
             print("   loadShapes() -- Error: input file doesn't exist!")
-            print('   inputFilename: ',inputFilename)
+            print('   inputFilename: ',inputFilenameJson)
             return False
         
-        # Load shapes
-        data = np.load(inputFilename).item()
+        if os.path.exists(inputFilenameJson):
+            with open(inputFilenameJson, 'r') as f:
+                data = json.load(f, object_hook=json_util.object_hook)
+        else:
+            # Load shapes
+            data = np.load(inputFilename).item()
         dataShapes = data['shapes']
         dataShapeID = data['shape ID']
         #print('dataShapes.shape = ',dataShapes.shape)
@@ -1655,6 +1694,15 @@ class PointsManager:
             #dataShapeBorder = None
         else:
             dataShapeBorder = None
+            
+        if type(dataShapes) is list:
+            dataShapes = np.array(dataShapes)
+        if type(dataShapeBorder) is list:
+            dataShapeBorder = np.array(dataShapeBorder)
+        if type(dataShapeID) is list:
+            dataShapeID = np.array(dataShapeID)
+        if type(dataShapeZ) is list:
+            dataShapeZ = np.array(dataShapeZ)
         
         if 'saving date & time' in data:
             saveTime = data['saving date & time']
