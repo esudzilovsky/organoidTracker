@@ -394,7 +394,7 @@ if True:
                 flagPolygon = shapeMgr.shapeType(shapeMgr.getCurrentShape())=='polygon'
                 if flagPolygon:
                     shapeMgr.closePoly()
-                shapeMgr.addShape(shapeMgr.getCurrentShape(), frameCtrl.getZSlice(), saveDir)
+                shapeMgr.addShape(shapeMgr.getCurrentShape(), frameCtrl.getZSlice())
                 shapeMgr.clearCurrentShape()
                 mouseCtrl.setFlagEditingShape(False)
                 
