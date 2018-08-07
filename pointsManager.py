@@ -843,7 +843,19 @@ class PointsManager:
         shapePointsCurrentXYWrite[self.currentFrame].append(points)
         self.shapesListFramesZ[self.currentXYWell][self.currentFrame].append(zIndex)
         if anyNonEmpty(self.shapesListFramesID[self.currentXYWell]):
-            self.shapesListFramesID[self.currentXYWell][self.currentFrame].append(np.max([index for indexList in self.shapesListFramesID[self.currentXYWell] for index in indexList])+1)#@len(self.shapesListFramesID[self.currentFrame]))
+            indexes = []
+            for t in range(len(self.shapesListFramesID[self.currentXYWell])):
+                for shapeID in range(len(self.shapesListFramesID[self.currentXYWell][t])):
+                    index = self.shapesListFramesID[self.currentXYWell][t][shapeID]
+                    if not_equal(index, self.missingShapeIDValue):
+                        indexes.append(index)
+            
+            if len(indexes)==0:
+                index = 0
+            else:
+                index = np.max(indexes)+1
+            
+            self.shapesListFramesID[self.currentXYWell][self.currentFrame].append(index)
         else:
             self.shapesListFramesID[self.currentXYWell][self.currentFrame].append(0)
     
@@ -1162,8 +1174,17 @@ class PointsManager:
         if not anyNonEmpty(self.shapesListFramesID[self.currentXYWell]):
             index = 0
         else:
-            #print('self.shapesListFramesID[self.currentXYWell]: ',self.shapesListFramesID[self.currentXYWell])
-            index = np.max([index for indexList in self.shapesListFramesID[self.currentXYWell] for index in indexList])+1#len(self.shapesListFrames)
+            indexes = []
+            for t in range(len(self.shapesListFramesID[self.currentXYWell])):
+                for shapeID in range(len(self.shapesListFramesID[self.currentXYWell][t])):
+                    index = self.shapesListFramesID[self.currentXYWell][t][shapeID]
+                    if not_equal(index, self.missingShapeIDValue):
+                        indexes.append(index)
+            
+            if len(indexes)==0:
+                index = 0
+            else:
+                index = np.max(indexes)+1
         self.showShape(img, self.shapePoints, shapeType, index, buildingShape=True)
         # Show border
         if len(self.borderPoints)>=3:
@@ -1854,26 +1875,31 @@ class PointsManager:
                             pass
                     """
                     #if dataShapeID[xy][t][shapeIndex]!=-1:
-                    self.shapesListFramesID = extendList(self.shapesListFramesID, xy, t, shapeIndex)
                     if dataShapeID[xy][t][shapeIndex]!=-1:
+                        self.shapesListFramesID = extendList(self.shapesListFramesID, xy, t, shapeIndex)
                         self.shapesListFramesID[xy][t][shapeIndex] = dataShapeID[xy][t][shapeIndex]
                     else:
                         """
-                            Missing shape ID
+                            Missing shape ID:
+                                add one only if there is a shape added (below)
                         """
-                        self.shapesListFramesID[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeIDValue)
+                        #self.shapesListFramesID[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeIDValue)
+                        pass
+                    
                     #if dataShapeZ[xy][t][shapeIndex]!=-1:
-                    self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy, t, shapeIndex)
                     if dataShapeZ[xy][t][shapeIndex]!=-1:
+                        self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy, t, shapeIndex)
                         self.shapesListFramesZ[xy][t][shapeIndex] = dataShapeZ[xy][t][shapeIndex]
                     else:
                         """
-                            Missing shape Z value
+                            Missing shape Z value:
+                                add one only if there is a shape added (below)
                         """
-                        self.shapesListFramesZ[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeZValue)
+                        #self.shapesListFramesZ[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeZValue)
+                        pass
                     
                     flagMissingBorder = dataShapeBorder is None or all_equal(dataShapeBorder[xy][t][shapeIndex], self.coordinateFillerValue)
-                    flagAddBorder = False # We only add a border if there is a shape added
+                    flagShapeAdded = False # We only add a border if there is a shape added
                     
                     """
                         The points are padded by missing/invalid point entries.
@@ -1883,7 +1909,7 @@ class PointsManager:
                             # Only include this shape if there is at least one valid point
                             shapePointsWrite = extendList(shapePointsWrite, xy, t, shapeIndex, pointIndex)
                             #borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex, pointIndex)
-                            flagAddBorder = True
+                            flagShapeAdded = True
                             """
                                 Multiply the points by screen factor to get the right position relative to the screen
                             """
@@ -1905,7 +1931,21 @@ class PointsManager:
                             else:
                                 break
                             
-                    if flagMissingBorder and flagAddBorder:
+                    if flagShapeAdded:
+                        """
+                            Only if there is a shape added do we add an empty ID / Z
+                            if they are missing
+                        """
+                        
+                        if dataShapeID[xy][t][shapeIndex]==-1:
+                            self.shapesListFramesID = extendList(self.shapesListFramesID, xy, t, shapeIndex)
+                            self.shapesListFramesID[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeIDValue)
+                            
+                        if dataShapeZ[xy][t][shapeIndex]==-1:
+                            self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy, t, shapeIndex)
+                            self.shapesListFramesZ[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeZValue)
+                            
+                    if flagMissingBorder and flagShapeAdded:
                         """
                             Missing shape border
                         """
