@@ -68,12 +68,13 @@ def newFrame():
 """
     Save all work in all frames
 """
-def saveAll(frameCtrl, shapeMgr):
+def saveAll(frameCtrl, shapeMgr, outputExcelFiles=False):
     global VIDEO_FILE_MODE2
     saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
     try:
         shapeMgr.saveShapes(saveDir + 'shapes')
-        shapeMgr.saveShapeAreas(saveDir + 'shapesArea', saveDir + 'shapesArea')
+        if outputExcelFiles:
+            shapeMgr.saveShapeAreas(saveDir + 'shapesArea', saveDir + 'shapesArea')
     except Exception as e:
         print('Could not save!')
         globalSettings.logError()
@@ -455,7 +456,7 @@ if True:
             
         # Save all
         if key&0xFF == ord('s'):
-            saveAll(frameCtrl, shapeMgr)
+            saveAll(frameCtrl, shapeMgr, True)
             continue
         
         # Load from files
@@ -668,7 +669,7 @@ if True:
 """
     Save all progress
 """
-saveAll(frameCtrl, shapeMgr)
+#saveAll(frameCtrl, shapeMgr)
 
 """
     Free resources
