@@ -28,6 +28,7 @@ from messageBox import inputFileMBox, inputNumberMBox, boolQuestionMBox, twoOpti
 from mouseControl import MouseControl
 from frameControl import FrameControl
 from frameControlND2 import FrameControlND2
+from commonFunctions import createFolder
 import globalSettings
 
 currentFrameNum = -1       # Frame number (starting from 1)
@@ -70,7 +71,12 @@ def newFrame():
 """
 def saveAll(frameCtrl, shapeMgr, outputExcelFiles=False):
     global VIDEO_FILE_MODE2
-    saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+    sourcePath = os.path.dirname(os.path.abspath(__file__))
+    if not (sourcePath.endswith('/') or sourcePath.endswith('\\')):
+        sourcePath += '/'
+    #saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+    saveDir = sourcePath + 'tracking/' + frameCtrl.getVideoBasename() + '_tracking/'
+    createFolder(sourcePath + 'tracking/')
     try:
         shapeMgr.saveShapes(saveDir + 'shapes')
         if outputExcelFiles:
@@ -92,7 +98,12 @@ def saveAll(frameCtrl, shapeMgr, outputExcelFiles=False):
     return True
     
 def loadAll(shapeMgr):
-    loadDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+    sourcePath = os.path.dirname(os.path.abspath(__file__))
+    if not (sourcePath.endswith('/') or sourcePath.endswith('\\')):
+        sourcePath += '/'
+    #loadDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+    loadDir = sourcePath + 'tracking/' + frameCtrl.getVideoBasename() + '_tracking/'
+    #print('loadDir: '+loadDir)
     
     flagException = False
     flagLoaded = False
@@ -190,13 +201,18 @@ else:
 """
     Set saving directory
 """
-saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+sourcePath = os.path.dirname(os.path.abspath(__file__))
+if not (sourcePath.endswith('/') or sourcePath.endswith('\\')):
+    sourcePath += '/'
+#saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+saveDir = sourcePath + 'tracking/' + frameCtrl.getVideoBasename() + '_tracking/'
 shapeMgr.setTrackingDirectory(saveDir)
 
 """
     Load any previous shapes
 """
-loadDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+#loadDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+loadDir = sourcePath + 'tracking/' + frameCtrl.getVideoBasename() + '_tracking/'
 if os.path.exists(loadDir):
     loadAll(shapeMgr)
 shapeMgr.setFrameSkip(frameCtrl.getFrameSkip())
