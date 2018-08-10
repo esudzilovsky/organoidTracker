@@ -140,7 +140,11 @@ class PointsManager:
     """
     def __init__(self, frameCtrl):#XYWellNum, frameTotNum, currentFrame, currentXYWell, screenFactor):
         print('   --- Intializing PointsManager ---')
-        self.saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+        sourcePath = os.path.dirname(os.path.abspath(__file__))
+        if not (sourcePath.endswith('/') or sourcePath.endswith('\\')):
+            sourcePath += '/'
+        #self.saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
+        self.saveDir = sourcePath + 'tracking/' + frameCtrl.getVideoBasename() + '_tracking/'
         
         #self.shapeData = ShapeData(self)
         
