@@ -221,7 +221,7 @@ class PointsManager:
         #self.shapeRGB = np.array((65,105,225),dtype=int)         # Color of the shape
         self.shapeRGB = np.array((51,255,255), dtype=int)
         self.borderRGBBuilding = np.array((128,255,0), dtype=int)
-        self.borderRGBComplete = np.array((255,165,0), dtype=int)
+        self.borderRGBComplete = np.array((255,127,80), dtype=int)#np.array((255,165,0), dtype=int)
         self.shapeIndexBeingAddedBorder = None  # The shape index of the shape we are adding a border to
         
         self.prevFrame = None               # The previous frame where we showed stuff
@@ -1015,8 +1015,8 @@ class PointsManager:
             """
                 Does this shape already have a border?
             """
-            if anyNonEmpty(borderPointsCurrentXYWrite[self.currentFrame][shapeIndex]):
-                return False
+            #if anyNonEmpty(borderPointsCurrentXYWrite[self.currentFrame][shapeIndex]):
+            #    return False
             
             self.shapeIndexBeingAddedBorder = shapeIndex
             return True

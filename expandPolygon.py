@@ -110,6 +110,7 @@ def distancePolygon2InternalPointAndCenter(points, point):
     lineCenterPoint = np.array([polyCenter, polyCenter+arrow],dtype=np.float64)
     
     point2Center = norm(point - polyCenter)
+    centerDistance = None
     for i in range(size):
         if i==len(points)-1:
             j = 0
@@ -125,7 +126,7 @@ def distancePolygon2InternalPointAndCenter(points, point):
     """
         This means the point is inside the shape, not outside of it.
     """
-    if point2Center is None:
+    if point2Center is None or centerDistance is None:
         return None, None
     return point2Center, centerDistance
 
@@ -160,4 +161,7 @@ def expandPolyUntillPoint(points, point, flagExpand=False):
         if minDistance is not None:
             return copy.deepcopy(points)
         point2Center, intersection2CenterDistance = distancePolygon2InternalPointAndCenter(points, point)
+        
+        if point2Center is None or intersection2CenterDistance is None:
+            return copy.deepcopy(points)
         return expandPoly(points, point2Center/intersection2CenterDistance)
