@@ -1924,7 +1924,19 @@ class PointsManager:
                     
                     # If so, then save this XY
                     if flagAtLeastOneShape:
-                        self.saveShapes(inputFilenameJson, xy=xy)
+                        inputFilenameJsonXY_tmp = inputFilenameJson.replace('.json','[xy='+np.str(xy+1)+'].json')
+                        
+                        """
+                            Do not create a XY file if there is an XY file there already!
+                            
+                            If you try to open an XY for which there is no file it
+                            will load from the old file and overwrite the other, existing
+                            xy files!
+                            
+                            This is here to prevent that overwriting!
+                        """
+                        if not os.path.exists(inputFilenameJsonXY_tmp):
+                            self.saveShapes(inputFilenameJson, xy=xy)
             
                 # We are done!
                 return
