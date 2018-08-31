@@ -14,6 +14,9 @@ import os
 import cv2
 from copy import deepcopy
 from commonFunctions import createFolder
+from messageBox import inputShapesFileMBox, inputFileMBox, inputOutputDirectory
+from pointsManager import PointsManager
+from frameControlND2 import FrameControlND2
 
 class exportToUNet:
     categoryBackground = int(0)
@@ -47,7 +50,7 @@ class exportToUNet:
         Returns:
             The filled frames with the categories: background, organoid, border.
     """
-    def export(self, frameCtrl, shapes, borders, frameWidth, frameHeight, outputDir):
+    def export(self, frameCtrl, shapes, zStackData, borders, frameWidth, frameHeight, outputDir):
         testImageCount = 0#100, DUBUG
         img = None
         
@@ -95,9 +98,10 @@ class exportToUNet:
         """
             Draw all the (external) borders
         """
-        print('   Exporting borders...')
+        
         testBorderCount = 0
         if borders is not None:
+            print('   Exporting borders...')
             for xy in range(xyCount):
                 print('      xy = '+np.str(xyList[xy]+1))
                 for t in range(frameCount):
@@ -153,10 +157,10 @@ class exportToUNet:
                             pass
                         
                         if img is not None and flagShapeFound:
-                            cv2.imwrite('e:/test_images/border_img['+np.str(testBorderCount)+']_0.png', img0)
-                            cv2.imwrite('e:/test_images/border_img['+np.str(testBorderCount)+']_1.png', img)
+                        #    cv2.imwrite('e:/test_images/border_img['+np.str(testBorderCount)+']_0.png', img0)
+                        #    cv2.imwrite('e:/test_images/border_img['+np.str(testBorderCount)+']_1.png', img)
                             testBorderCount += 1
-        print('      All borders done!')
+            print('      All borders done!')
         
         """
             Draw all the organoids
@@ -164,7 +168,7 @@ class exportToUNet:
             This overwrites the internal part of the shape drawn by the borders
             code, which is what we want.
         """
-        print('   Exporting shapes...')
+        print('   Exporting organoids & masks...')
         testShapeCount = 0
         count = 0
         for xy in range(xyCount):
@@ -185,12 +189,49 @@ class exportToUNet:
                         img0 = deepcopy(img)
                 
                 flagShapeFound = False
+                imageOrganoidsMask = np.full((frameHeight, frameWidth),
+                                False,
+                                dtype=bool)
+                imageOrganoids = np.full((frameHeight, frameWidth),
+                                exportToUNet.categoryBackground,
+                                dtype=np.uint8)
                 frame = np.full((frameHeight, frameWidth),
                                 exportToUNet.categoryBackground,
                                 dtype=np.uint8)
+                
+                """
+                    What z-slices do we need for this frame?
+                """
+                zSliceList = []
+                for shapeID in range(len(shapes[xyList[xy]][t])): 
+                    z = zStackData[xyList[xy]][t][shapeID]
+                    zImage = None
+                    if z is not None:
+                        zSliceList.append(z)
+                zSliceList = np.unique(zSliceList)
+                numZSlices = len(zSliceList)
+                
+                """
+                    Prepare those z-slices
+                """
+                zSlicesFrame = np.full((numZSlices, frameHeight, frameWidth),
+                                exportToUNet.categoryBackground,
+                                dtype=np.uint8)
+                for i in range(len(zSliceList)):
+                    zSlice = zSliceList[i]
+                    zSlicesFrame[i, :, :] = frameCtrl.getFrame(xyList[xy], t, zSlice=zSlice)
+                
                 for shapeID in range(len(shapes[xyList[xy]][t])):                    
                     points = shapes[xyList[xy]][t][shapeID]
                     shapeType = self.__getShapeType(points)
+                    
+                    z = zStackData[xyList[xy]][t][shapeID]
+                    zImage = None
+                    if z is not None:
+                        """
+                            Get an image for that z
+                        """
+                        zImage = zSlicesFrame[np.where(z==zSliceList)[0][0], :, :]
                     
                     if shapeType!='points':
                         flagShapeFound = True                
@@ -204,6 +245,15 @@ class exportToUNet:
                             self.__fillCircle(img,
                                               center, radius,
                                               fill_value=exportToUNet.categoryOrganoid)
+                        if zImage is not None:
+                            tmpMask = np.full((frameHeight, frameWidth),
+                                exportToUNet.categoryBackground,
+                                dtype=np.uint8)
+                            self.__fillCircle(tmpMask,
+                                              center, radius,
+                                              fill_value=exportToUNet.categoryOrganoid)
+                            imageOrganoidsMask[tmpMask==exportToUNet.categoryOrganoid] = True
+                            imageOrganoids[tmpMask==exportToUNet.categoryOrganoid] = zImage[tmpMask==exportToUNet.categoryOrganoid]
                     elif shapeType=='ellipse':
                         center, radius, angle = self.__fitEllipse(points)
                         self.__fillEllipse(frame,
@@ -213,6 +263,16 @@ class exportToUNet:
                             self.__fillEllipse(img,
                                           center, radius, angle,
                                           fill_value=exportToUNet.categoryOrganoid)
+                        
+                        if zImage is not None:
+                            tmpMask = np.full((frameHeight, frameWidth),
+                                exportToUNet.categoryBackground,
+                                dtype=np.uint8)
+                            self.__fillEllipse(tmpMask,
+                                          center, radius, angle,
+                                          fill_value=exportToUNet.categoryOrganoid)
+                            imageOrganoidsMask[tmpMask==exportToUNet.categoryOrganoid] = True
+                            imageOrganoids[tmpMask==exportToUNet.categoryOrganoid] = zImage[tmpMask==exportToUNet.categoryOrganoid]
                     elif shapeType=='polygon':
                         self.__fillPolygon(frame,
                                            points,
@@ -221,6 +281,16 @@ class exportToUNet:
                             self.__fillPolygon(img,
                                            points,
                                            fill_value=exportToUNet.categoryOrganoid)
+                            
+                        if zImage is not None:
+                            tmpMask = np.full((frameHeight, frameWidth),
+                                exportToUNet.categoryBackground,
+                                dtype=np.uint8)
+                            self.__fillPolygon(tmpMask,
+                                           points,
+                                           fill_value=exportToUNet.categoryOrganoid)
+                            imageOrganoidsMask[tmpMask==exportToUNet.categoryOrganoid] = True
+                            imageOrganoids[tmpMask==exportToUNet.categoryOrganoid] = zImage[tmpMask==exportToUNet.categoryOrganoid]
                     else:
                         print('   exportToUNet: shape type not recognized!')
                         print('   skipping shape...')
@@ -235,11 +305,17 @@ class exportToUNet:
                 """
                 if flagShapeFound:
                     originalImage = frameCtrl.getFrame(xyList[xy], t)
+                    
+                    """
+                        Copy the organoids from various z-stacks onto the image
+                    """
+                    originalImage[imageOrganoidsMask] = imageOrganoids[imageOrganoidsMask]
                     maskImage = frame
+                    
                     cv2.imwrite(outputDir + 'image/'+np.str(count)+'.png', originalImage)
                     cv2.imwrite(outputDir + 'label/'+np.str(count)+'.png', maskImage)
                     count += 1
-        print('      All shapes done!')
+        print('      All organoids & masks done!')
         
         #if outFilepath is not None:
         #    print('   Saving to output file...')
@@ -309,3 +385,62 @@ class exportToUNet:
             cv2.fillPoly(img, [points], exportToUNet.rgbFill)
         else:
             cv2.fillPoly(img, [points], fill_value)
+            
+if __name__=='__main__':
+    #frameCtrl = None
+    
+    """
+        Get video filename from user
+        Note:
+            - This could either be a ND2 filename or it could be the
+              name of a folder that contains many ND2 files, in which
+              case they will all be loaded as a single file.
+    """
+    #videoFilename = inputFileMBox(None, None, None)
+    #videoFilename = 'X:/20180716_PDX/'
+    videoFilename = 'X:/20180122_MIS_SOK/'
+    
+    """
+        Get shapes filename from user
+    """
+    #shapesFilename = inputShapesFileMBox()
+    #shapesFilename = 'E:/shapes.json'
+    shapesFilename = 'X:/20180122_MIS_SOK/shapes.json'
+    
+    """
+        Get the output directory from the user
+    """
+    #outputDir = inputOutputDirectory()
+    #outputDir = 'X:/20180716_PDX/'
+    outputDir = 'X:/20180122_MIS_SOK/'
+    
+    frameCtrl = FrameControlND2()
+    frameCtrl.setInputVideo(videoFilename, None)
+    
+    """
+        This class manages the shapes file
+    """
+    shapesMgr = PointsManager(frameCtrl)
+    
+    shapesMgr.loadShapes(None, shapesFilename)
+    shapesMgr.setScreenFactor(1)
+    
+    frameWidth = frameCtrl.getFrameWidth()
+    frameHeight = frameCtrl.getFrameHeight()
+    
+    """
+        This will output all the images, after contrast and brightness correction,
+        into the folder 'image' in the output directory. The organoid mask will be
+        outputted into the folder 'label' in the output directory.
+        
+        Note:
+            - Let me know if you want this sorted by XY or whatever.
+    """
+    exporter = exportToUNet()
+    exporter.export(frameCtrl,
+                    shapesMgr.getShapePointsReadOriginalScale(),
+                    shapesMgr.getZStackData(),
+                    None,#shapesMgr.getBorderPointsReadOriginalScale(),
+                    frameWidth,
+                    frameHeight,
+                    outputDir)

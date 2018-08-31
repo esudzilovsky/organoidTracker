@@ -114,6 +114,12 @@ class FrameControlND2:
     def gotoFrame(self, frameNum):
         self.currentFrameNumAllFiles = int(frameNum)
         
+    """
+        Returns the number of frames skipped between every two read frames
+    """
+    def getFrameSkip(self):
+        return self.readEveryNthFrame
+        
     def getFrameSkipPathnames(self, nd2Filename):
         if os.path.isdir(nd2Filename):
             return nd2Filename+'/'+'frameSkip'
@@ -477,18 +483,22 @@ class FrameControlND2:
         """
         self.frame = np.array(np.array(imageArray,dtype=float)/np.iinfo(np.uint16).max*255, dtype=np.uint8)
     
-    def getFrame(self, xy, t):
+    def getFrame(self, xy, t, zSlice=None):
         width, height = self.__getOriginalImageSize()
         
         nd2FileIndex, nd2FrameIndex = self.frameNum2Nd2File[t]
         
         #print('self.XYWellNum: ',self.XYWellNum)
         nd2Reader = self.nd2Readers[nd2FileIndex]
+        
+        if zSlice is None:
+            zSlice = self.zSlice
+        
         imageArray = nd2Reader.parser.get_image_by_attributes(\
                                                int(nd2FrameIndex),\
                                                int(self.fieldsOfView[xy]),\
                                                self.channels[self.readChannelIndex],
-                                               self.zLevels[self.zSlice],\
+                                               self.zLevels[zSlice],\
                                                int(height),\
                                                int(width))
         

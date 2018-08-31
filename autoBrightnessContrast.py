@@ -2,7 +2,7 @@
 """
 Created on Tue Apr 17 13:53:05 2018
 
-@author: Edward
+@author: Edward Sudzilovsky
 """
 
 from __future__ import print_function
@@ -125,3 +125,16 @@ class AutoBrightnessContrast:
         image = cdf[image]
         
         return image
+    
+if __name__=='__main__':
+    image = np.random.randint(0, 256, size=(500,500))
+    image = np.array(image, dtype=np.uint8)
+    
+    adjuster = AutoBrightnessContrast()
+    
+    """
+        Notes:
+            - The image must be a 2D (grayscale) numpy array of type np.uint8.
+    """
+    adjustedImage = adjuster.autoAdjust(image)
+    

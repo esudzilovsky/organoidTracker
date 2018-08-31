@@ -31,7 +31,7 @@ def getOrganoidTrackerVersion():
 """
 
 globalSettings = {
-          'organoidTracker version' : 0.068,
+          'organoidTracker version' : 0.069,
         'errorLogfile' : 'organoidTracker-Errors.log'
 }
 

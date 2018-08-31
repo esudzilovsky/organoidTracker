@@ -161,7 +161,16 @@ def inputFileMBox(configFilename, alternativeSearchPath, extension):
                 sys.exit()
             
     if filename is not None:
-        saveToConfigFile(configFilename, filename)
+        if configFilename is not None:
+            saveToConfigFile(configFilename, filename)
+    return filename
+
+def inputShapesFileMBox():
+    filename = mbox("Enter shapes filename:", entry=True, width=100)
+    return filename
+
+def inputOutputDirectory():
+    filename = mbox("Enter output directory:", entry=True, width=100)
     return filename
 
 def inputNumberMBox(textQuestionString):

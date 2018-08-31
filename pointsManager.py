@@ -31,7 +31,7 @@ from expandPolygon import expandPolyUntillPoint
 from expandCircle import expandCircleUntillPoint
 from expandEllipse import expandEllipseUntillPoint
 from equality import equal, all_equal, any_equal, not_equal, any_not_equal
-from exportToUNet import exportToUNet
+#from exportToUNet import exportToUNet
 import json
 from bson import json_util
 #from shapeData import ShapeData
@@ -139,12 +139,15 @@ class PointsManager:
                         was multiplied by to make it fit the window size wanted.
     """
     def __init__(self, frameCtrl):#XYWellNum, frameTotNum, currentFrame, currentXYWell, screenFactor):
+        self.frameCtrl = None
+        
         print('   --- Intializing PointsManager ---')
         sourcePath = os.path.dirname(os.path.abspath(__file__))
         if not (sourcePath.endswith('/') or sourcePath.endswith('\\')):
             sourcePath += '/'
         #self.saveDir = frameCtrl.getVideoPath() + frameCtrl.getVideoBasename() + '_tracking/'
-        self.saveDir = sourcePath + 'tracking/' + frameCtrl.getVideoBasename() + '_tracking/'
+        if frameCtrl is not None:
+            self.saveDir = sourcePath + 'tracking/' + frameCtrl.getVideoBasename() + '_tracking/'
         
         #self.shapeData = ShapeData(self)
         
@@ -158,10 +161,11 @@ class PointsManager:
         """
         self.trackingDirectory = None
         
-        self.XYWellNum = frameCtrl.getXYWellCount()
-        self.frameTotNum = frameCtrl.getFrameCount()
-        print('   XYWellNum = '+np.str(self.XYWellNum))
-        print('   frameTotNum = '+np.str(self.frameTotNum))
+        if frameCtrl is not None:
+            self.XYWellNum = frameCtrl.getXYWellCount()
+            self.frameTotNum = frameCtrl.getFrameCount()
+            print('   XYWellNum = '+np.str(self.XYWellNum))
+            print('   frameTotNum = '+np.str(self.frameTotNum))
         """
             This is a list:
                 self.shapesListFrames[xy_well][frame][shapeIndex][pointIndex] = (x,y)
@@ -189,25 +193,28 @@ class PointsManager:
         self.shapesListFramesID = []
         self.missingShapeIDValue = None  # The value given to an entry when the data is missing
         
-        for i in range(self.XYWellNum):
-            self.shapesListFrames.append([])
-            self.bordersListFrames.append([])
-            self.shapesListFramesZ.append([])
-            self.shapesListFramesID.append([])
-            for _ in range(self.frameTotNum):
-                self.shapesListFrames[i].append([])
-                self.bordersListFrames[i].append([])
-                self.shapesListFramesZ[i].append([])
-                self.shapesListFramesID[i].append([])
+        if frameCtrl is not None:
+            for i in range(self.XYWellNum):
+                self.shapesListFrames.append([])
+                self.bordersListFrames.append([])
+                self.shapesListFramesZ.append([])
+                self.shapesListFramesID.append([])
+                for _ in range(self.frameTotNum):
+                    self.shapesListFrames[i].append([])
+                    self.bordersListFrames[i].append([])
+                    self.shapesListFramesZ[i].append([])
+                    self.shapesListFramesID[i].append([])
                 
         self.areaFillerValue = -1        # The value given to a missing area
             
-        self.currentFrame = frameCtrl.getCurrentFrameNumber()
-        self.lastBackupFrame = self.currentFrame
-        #print('pointsMgr.currentFrame: '+np.str(self.currentFrame))
-        self.currentXYWell = frameCtrl.getCurrentXYWellNumber()
-        self.screenFactor = frameCtrl.getScreenFactor()
-        self.frameCtrl = frameCtrl
+        if frameCtrl is not None:
+            self.currentFrame = frameCtrl.getCurrentFrameNumber()
+            self.lastBackupFrame = self.currentFrame
+            #print('pointsMgr.currentFrame: '+np.str(self.currentFrame))
+            self.currentXYWell = frameCtrl.getCurrentXYWellNumber()
+            self.screenFactor = frameCtrl.getScreenFactor()
+        
+            self.frameCtrl = frameCtrl
         
         #self.shapesList = []
         self.gDataDir = None
@@ -745,6 +752,10 @@ class PointsManager:
         return out
         
     def setCurrentFrame(self, currentFrame):
+        #print('setCurrentFrame:')
+        #print('   currentFrame = '+np.str(currentFrame))
+        #print('   self.lastBackupFrame = '+np.str(self.lastBackupFrame))
+        
         #print('setCurrentFrame: ',currentFrame)
         #print(' - cur frame: ',self.currentFrame)
         #print(' - prev frame: ',self.prevFrame)
@@ -776,7 +787,7 @@ class PointsManager:
             OR at least 10 new frames have shapes in them, save data to backup
         """
         minFrame = np.min([currentFrame, self.lastBackupFrame+1])
-        maxFrame = np.min([currentFrame, self.lastBackupFrame-1])
+        maxFrame = np.max([currentFrame, self.lastBackupFrame-1])
         newFrames = np.array(list(range(minFrame, maxFrame+1, 1)),dtype=int)
         
         """
@@ -787,8 +798,12 @@ class PointsManager:
             if len(shapePointsCurrentXYWrite[t])>0:
                 newFramesWithShapes += 1
         
-        if np.abs(currentFrame-self.lastBackupFrame)>=5 or newFramesWithShapes>=3:
+        #if np.abs(currentFrame-self.lastBackupFrame)>=5 or newFramesWithShapes>=3:
+        if np.abs((currentFrame-self.lastBackupFrame)/float(self.frameCtrl.getFrameSkip()))>=7.0\
+            or newFramesWithShapes>=3:
+            #print('Saving backup...')
             self.saveDataBackup()
+            self.lastBackupFrame = currentFrame
         #if np.abs(currentFrame-self.lastBackupFrame)>=10 or newFramesWithShapes>=2:
             #self.saveDataBackup()
             
@@ -1316,7 +1331,7 @@ class PointsManager:
             Sort the points to draw the polygon in the right order
         """
         #print('DEBUG: poly shapePoints: ',shapePoints)
-        np.save(self.saveDir + 'workingPolygon.npy', np.array(shapePoints, dtype=object))
+        #np.save(self.saveDir + 'workingPolygon.npy', np.array(shapePoints, dtype=object))
         
         polyFinder = PolygonShapeFinder(shapePoints)
         shapePoints = polyFinder.getSortedPolygon()
@@ -1564,7 +1579,12 @@ class PointsManager:
     
         return borderPointsOriginalScale
     
-    def exportShapesToUNet(self, outputDir):   
+    def getZStackData(self):
+        return self.shapesListFramesZ
+    
+    def exportShapesToUNet(self, outputDir):
+        return
+    
         print('Exporting to UNet...')
         frameWidth = self.frameCtrl.getFrameWidth()
         frameHeight = self.frameCtrl.getFrameHeight()
@@ -1664,6 +1684,8 @@ class PointsManager:
         self.frameSkip = frameSkip
         
     def getBackupTimedate(self):
+        if self.trackingDirectory is None:
+            return None
         backupFilename = self.trackingDirectory + 'shapes.backup.json'
         if os.path.exists(backupFilename):
             with open(backupFilename, 'r') as f:
@@ -1756,19 +1778,22 @@ class PointsManager:
             Get number of frames
             Add fake frames to start if we have too few
         """
-        currentNumFrames = self.frameCtrl.getFrameCount()
+        
         numFrames = dataShapes.shape[1]
         print('... Loading #'+np.str(numFrames)+' frames...')
-        if numFrames<currentNumFrames:
-            print('   Error we have more frames than are loaded! Aborting!')
-            return
-        elif numFrames==currentNumFrames:
-            print('   Success! We have the same number of frames as are loaded!')
-        else:
-            numFakeFrames = numFrames-currentNumFrames
-            print('   We have less frames than are loaded!')
-            print('   We will add #'+np.str(numFakeFrames)+' fake frames to the beginning!')
-            self.frameCtrl.addFakeFramesToBeginning(numFakeFrames)
+        
+        if self.frameCtrl is not None:
+            currentNumFrames = self.frameCtrl.getFrameCount()
+            if numFrames<currentNumFrames:
+                print('   Error we have more frames than are loaded! Aborting!')
+                return
+            elif numFrames==currentNumFrames:
+                print('   Success! We have the same number of frames as are loaded!')
+            else:
+                numFakeFrames = numFrames-currentNumFrames
+                print('   We have less frames than are loaded!')
+                print('   We will add #'+np.str(numFakeFrames)+' fake frames to the beginning!')
+                self.frameCtrl.addFakeFramesToBeginning(numFakeFrames)
             
         """
             If there is just one active XY channel pick that one (DEBUG)
@@ -1841,7 +1866,7 @@ class PointsManager:
         """
         screenFactorCorrectionFlag = True
         #screenFactorFilename = loadDir+'/'+'screenFactor.npy'
-        if 'organoidTracker version' not in data or data['organoidTracker version']<0.050:#os.path.exists(screenFactorFilename):
+        if loadDir is None or ('organoidTracker version' not in data or data['organoidTracker version']<0.050):#os.path.exists(screenFactorFilename):
             screenFactorCorrectionFlag = False
             print('   Ignoring screen factor for backwards compatibility...')
             
@@ -2052,7 +2077,7 @@ class PointsManager:
         if countInvalidCoordinatesNum>0:
             print('   We found #'+np.str(countInvalidCoordinatesNum)+' invalid coordinates (not 2D)')
         
-        if not screenFactorCorrectionFlag:
+        if loadDir is not None and not screenFactorCorrectionFlag:
             print('   Saving shapes with screen factor correction...')
             self.saveShapes(inputFilename)
             
@@ -2071,6 +2096,9 @@ class PointsManager:
         #print('self.shapesListFramesZ: ',self.shapesListFramesZ)
         
         return True
+    
+    def setScreenFactor(self, screenFactor):
+        self.screenFactor = screenFactor
         
     """
         Saves the shape areas to an *.npy file (outputFilename) and an excel

@@ -293,6 +293,9 @@ if True:
             if flagOneFrameBack==True:
                 frameCtrl.backward()
                 
+                # Send new frame # to shapeMgr
+                shapeMgr.setCurrentFrame(frameCtrl.getCurrentFrameNumber())
+                
                 flagOneFrameBack = False
             
             currentFrameNum = frameCtrl.getCurrentFrameNumber()
@@ -305,6 +308,9 @@ if True:
             grayFrame = frameCtrl.getCurrentGrayFrame()
             
             if flagOneFrameForward==True:
+                # Send new frame # to shapeMgr
+                shapeMgr.setCurrentFrame(frameCtrl.getCurrentFrameNumber())
+                
                 if isPaused==True:
                     flagOneFrameForward = False
                 else:
@@ -322,9 +328,6 @@ if True:
             
             # Write button information
             writeInformationText(img_ch1_draw)
-                
-            # Send new frame # to shapeMgr
-            shapeMgr.setCurrentFrame(frameCtrl.getCurrentFrameNumber())
             
             # Draw frame number
             if showTextFlag:
@@ -533,7 +536,7 @@ if True:
             if mode==1:
                 flagOneFrame = True
                 isPaused = True
-            saveAll(frameCtrl, shapeMgr)
+            #saveAll(frameCtrl, shapeMgr)
             
             """
                 Don't allow doing undos for stuff done in previous frame
@@ -551,7 +554,7 @@ if True:
             if mode==1:            
                 flagOneFrameBack = True
                 isPaused = True
-            saveAll(frameCtrl, shapeMgr)
+            #saveAll(frameCtrl, shapeMgr)
             
             """
                 Don't allow doing undos for stuff done in previous frame
