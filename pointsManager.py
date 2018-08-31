@@ -598,20 +598,34 @@ class PointsManager:
     
     """
         Returns all the shapes in all xy, frames.
+        If xy is not None, returns shapes for that xy only.
     """
-    def __getShapesSortedByID(self, dtype=np.int64):
-        shapePointsWrite = self.getShapePointsWrite()
-        
-        shapesDict = dict()
-        for xy in range(len(shapePointsWrite)):
-            for t in range(len(shapePointsWrite[xy])):
-                for shapeIndex in range(len(shapePointsWrite[xy][t])):
+    def __getShapesSortedByID(self, dtype=np.int64, xy=None):
+        if xy is not None:
+            shapePointsWriteXY = self.getShapePointsWrite()[xy]
+            
+            shapesDict = dict()
+            for t in range(len(shapePointsWriteXY)):
+                for shapeIndex in range(len(shapePointsWriteXY[t])):
                     shapeID = self.shapesListFramesID[xy][t][shapeIndex]
-                    shapesDict[(xy,t,shapeID)] = np.array(shapePointsWrite[xy][t][shapeIndex], dtype=dtype)
-        shapes = []
-        for (xy,t,shapeID) in shapesDict.keys():
-            shapes = extendList(shapes, xy, t, shapeID)
-            shapes[xy][t][shapeID] = shapesDict[(xy,t,shapeID)]
+                    shapesDict[(t,shapeID)] = np.array(shapePointsWriteXY[t][shapeIndex], dtype=dtype)
+            shapes = []
+            for (t,shapeID) in shapesDict.keys():
+                shapes = extendList(shapes, t, shapeID)
+                shapes[t][shapeID] = shapesDict[(t,shapeID)]
+        else:
+            shapePointsWrite = self.getShapePointsWrite()
+            
+            shapesDict = dict()
+            for xy in range(len(shapePointsWrite)):
+                for t in range(len(shapePointsWrite[xy])):
+                    for shapeIndex in range(len(shapePointsWrite[xy][t])):
+                        shapeID = self.shapesListFramesID[xy][t][shapeIndex]
+                        shapesDict[(xy,t,shapeID)] = np.array(shapePointsWrite[xy][t][shapeIndex], dtype=dtype)
+            shapes = []
+            for (xy,t,shapeID) in shapesDict.keys():
+                shapes = extendList(shapes, xy, t, shapeID)
+                shapes[xy][t][shapeID] = shapesDict[(xy,t,shapeID)]
         return shapes
     
     def __getShapeCenter(self, points):
@@ -1366,7 +1380,10 @@ class PointsManager:
         # Draw the circle number
         cv2.putText(img,'#'+str(index),(point[1]+10,point[0]), self.font, 0.5,(100,255,0),1)
 
-    def __getShapeArray(self, fill, dtype):
+    """
+        if xy is not None it will return the shapes only for that xy.
+    """
+    def __getShapeArray(self, fill, dtype, xy=None):
         """
             We need to convert self.shapesListFrames to a numpy array in order to save it to file.
             The problem is than a numpy array must be square (in 3 dimensions), but we have a list
@@ -1376,177 +1393,313 @@ class PointsManager:
         shapes = self.getShapePointsWrite()#self.__getShapesSortedByID()
         #shapes = self.__getShapesSortedByID()
         
-        """
-            Get numbr of XY wells
-        """
-        wellsNum = len(shapes)
-        
-        """
-            Get number of frames
-        """
-        lens1 = [len(l) for l in shapes]
-        maxFrames = np.max(lens1)
-    
-        """
-            Find the maximum number of shapes in any frame
-        """
-        lens2 = [len(l2) for l1 in shapes for l2 in l1]
-        maxShapes = np.max(lens2)
-        
-        """
-            Find the maximum number of points per shape
-        """
-        lens3 = [len(l3) for l1 in shapes for l2 in l1 for l3 in l2]
-        maxPointsPerShape = np.max(lens3)
-        
-        """
-            data if filled with 'fill'
-        """
-        data = np.full((wellsNum,maxFrames,maxShapes,maxPointsPerShape,2),fill,dtype=dtype)
-        
-        """
-            Fill in the data where we have points
-        """
-        for xy in range(wellsNum):
-            for t in range(len(shapes[xy])):
-                for shapeIndex in range(len(shapes[xy][t])):
-                    for pointIndex in range(len(shapes[xy][t][shapeIndex])):
+        if xy is not None:
+            currentXYShapes = shapes[xy]
+            
+            """
+                Get number of frames
+            """
+            maxFrames = len(currentXYShapes)
+            
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens1 = [len(l1) for l1 in currentXYShapes]
+            maxShapes = np.max(lens1)
+            
+            """
+                Find the maximum number of points per shape
+            """
+            lens2 = [len(l2) for l1 in currentXYShapes for l2 in l1]
+            maxPointsPerShape = np.max(lens2)
+            
+            """
+                data is filled with 'fill'
+            """
+            data = np.full((maxFrames,maxShapes,maxPointsPerShape,2),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for t in range(len(currentXYShapes)):
+                for shapeIndex in range(len(currentXYShapes[t])):
+                    for pointIndex in range(len(currentXYShapes[t][shapeIndex])):
                         """
                             Make sure to divide by screen factor to get the absolute pixel coordinates
                             and not relative to this monitor
                         """
-                        data[xy][t][shapeIndex][pointIndex,:] = np.array(np.array(shapes[xy][t][shapeIndex][pointIndex],dtype=np.float64)/self.screenFactor,dtype=np.float64)
+                        data[t][shapeIndex][pointIndex,:] = np.array(np.array(currentXYShapes[t][shapeIndex][pointIndex],dtype=np.float64)/self.screenFactor,dtype=np.float64)
+        
+        else:
+            """
+                Get numbr of XY wells
+            """
+            wellsNum = len(shapes)
             
+            """
+                Get number of frames
+            """
+            lens1 = [len(l) for l in shapes]
+            maxFrames = np.max(lens1)
+        
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens2 = [len(l2) for l1 in shapes for l2 in l1]
+            maxShapes = np.max(lens2)
+            
+            """
+                Find the maximum number of points per shape
+            """
+            lens3 = [len(l3) for l1 in shapes for l2 in l1 for l3 in l2]
+            maxPointsPerShape = np.max(lens3)
+            
+            """
+                data is filled with 'fill'
+            """
+            data = np.full((wellsNum,maxFrames,maxShapes,maxPointsPerShape,2),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for xy in range(wellsNum):
+                for t in range(len(shapes[xy])):
+                    for shapeIndex in range(len(shapes[xy][t])):
+                        for pointIndex in range(len(shapes[xy][t][shapeIndex])):
+                            """
+                                Make sure to divide by screen factor to get the absolute pixel coordinates
+                                and not relative to this monitor
+                            """
+                            data[xy][t][shapeIndex][pointIndex,:] = np.array(np.array(shapes[xy][t][shapeIndex][pointIndex],dtype=np.float64)/self.screenFactor,dtype=np.float64)
+                
         return data
     
-    def __getShapeBorder(self, fill, dtype):
+    def __getShapeBorder(self, fill, dtype, xy=None):
         shapeBorders = self.getBorderPointsWrite()
         shapes = self.getShapePointsWrite()
         #print('__getShapeBorder: shapeBorders[self.currentXYWell][self.currentFrame] = ',shapeBorders[self.currentXYWell][self.currentFrame])
         
-        """
-            Get numbr of XY wells
-        """
-        wellsNum = len(shapes)
-        
-        """
-            Get number of frames
-        """
-        lens1 = [len(l) for l in shapes]
-        maxFrames = np.max(lens1)
-    
-        """
-            Find the maximum number of shapes in any frame
-        """
-        lens2 = [len(l2) for l1 in shapes for l2 in l1]
-        maxShapes = np.max(lens2)
-        
-        """
-            Find the maximum number of points per shape
-            (this is for shape borders and not shapes as shape borders
-            will have more points due to the method used to "expand" the
-            shapes)
-        """
-        lens3 = [len(l3) for l1 in shapeBorders for l2 in l1 for l3 in l2]
-        maxPointsPerShape = np.max(lens3)
-        
-        """
-            data if filled with 'fill'
-        """
-        data = np.full((wellsNum,maxFrames,maxShapes,maxPointsPerShape,2),fill,dtype=dtype)
-        
-        """
-            Fill in the data where we have points
-        """
-        for xy in range(wellsNum):
-            for t in range(len(shapeBorders[xy])):
-                for shapeIndex in range(len(shapeBorders[xy][t])):
-                    #if not_equal(shapeBorders[xy][t][shapeIndex], self.missingShapeBorder):
-                    for pointIndex in range(len(shapeBorders[xy][t][shapeIndex])):
-                        
-                        #shapeBorders[xy]
-                        #shapeBorders[xy][t]
-                        #shapeBorders[xy][t][shapeIndex]
-                        #shapeBorders[xy][t][shapeIndex][pointIndex]
-                        
+        if xy is not None:
+            currentXYShapes = shapes[xy]
+            currentXYBorders = shapeBorders[xy]
+            
+            """
+                Get number of frames
+            """
+            maxFrames = len(currentXYShapes)
+            
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens1 = [len(l) for l in currentXYShapes]
+            maxShapes = np.max(lens1)
+            
+            """
+                Find the maximum number of points per shape
+                (this is for shape borders and not shapes as shape borders
+                will have more points due to the method used to "expand" the
+                shapes)
+            """
+            lens2 = [len(l2) for l1 in currentXYBorders for l2 in l1]
+            maxPointsPerShape = np.max(lens2)
+            
+            """
+                data if filled with 'fill'
+            """
+            data = np.full((maxFrames,maxShapes,maxPointsPerShape,2),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for t in range(len(currentXYBorders)):
+                for shapeIndex in range(len(currentXYBorders[t])):
+                    for pointIndex in range(len(currentXYBorders[t][shapeIndex])):
                         """
                             Make sure to divide by screen factor to get the absolute pixel coordinates
                             and not relative to this monitor
                         """
-                        #if len(shapeBorders)>xy and len(shapeBorders[xy])>t and len(shapeBorders[xy][t])>shapeIndex and len(shapeBorders[xy][t][shapeIndex])>pointIndex:
-                        data[xy][t][shapeIndex][pointIndex,:] = np.array(np.array(shapeBorders[xy][t][shapeIndex][pointIndex],dtype=np.float64)/self.screenFactor,dtype=np.float64)
-        #print('data[self.currentXYWell][self.currentFrame] =  ',data[self.currentXYWell][self.currentFrame])
+                        data[t][shapeIndex][pointIndex,:] = np.array(np.array(currentXYBorders[t][shapeIndex][pointIndex],dtype=np.float64)/self.screenFactor,dtype=np.float64)
+        
+        else:
+            """
+                Get numbr of XY wells
+            """
+            wellsNum = len(shapes)
+            
+            """
+                Get number of frames
+            """
+            lens1 = [len(l) for l in shapes]
+            maxFrames = np.max(lens1)
+        
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens2 = [len(l2) for l1 in shapes for l2 in l1]
+            maxShapes = np.max(lens2)
+            
+            """
+                Find the maximum number of points per shape
+                (this is for shape borders and not shapes as shape borders
+                will have more points due to the method used to "expand" the
+                shapes)
+            """
+            lens3 = [len(l3) for l1 in shapeBorders for l2 in l1 for l3 in l2]
+            maxPointsPerShape = np.max(lens3)
+            
+            """
+                data if filled with 'fill'
+            """
+            data = np.full((wellsNum,maxFrames,maxShapes,maxPointsPerShape,2),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for xy in range(wellsNum):
+                for t in range(len(shapeBorders[xy])):
+                    for shapeIndex in range(len(shapeBorders[xy][t])):
+                        #if not_equal(shapeBorders[xy][t][shapeIndex], self.missingShapeBorder):
+                        for pointIndex in range(len(shapeBorders[xy][t][shapeIndex])):
+                            
+                            #shapeBorders[xy]
+                            #shapeBorders[xy][t]
+                            #shapeBorders[xy][t][shapeIndex]
+                            #shapeBorders[xy][t][shapeIndex][pointIndex]
+                            
+                            """
+                                Make sure to divide by screen factor to get the absolute pixel coordinates
+                                and not relative to this monitor
+                            """
+                            #if len(shapeBorders)>xy and len(shapeBorders[xy])>t and len(shapeBorders[xy][t])>shapeIndex and len(shapeBorders[xy][t][shapeIndex])>pointIndex:
+                            data[xy][t][shapeIndex][pointIndex,:] = np.array(np.array(shapeBorders[xy][t][shapeIndex][pointIndex],dtype=np.float64)/self.screenFactor,dtype=np.float64)
+            #print('data[self.currentXYWell][self.currentFrame] =  ',data[self.currentXYWell][self.currentFrame])
         return data
     
-    def __getShapeIDArray(self, fill, dtype):
+    def __getShapeIDArray(self, fill, dtype, xy=None):
         shapeID = self.shapesListFramesID
         
-        """
-            Get numbr of XY wells
-        """
-        wellsNum = len(shapeID)
-        
-        """
-            Get number of frames
-        """
-        lens1 = [len(l) for l in shapeID]
-        maxFrames = np.max(lens1)
-        
-        """
-            Find the maximum number of shapes in any frame
-        """
-        lens2 = [len(l2) for l1 in shapeID for l2 in l1]
-        maxShapes = np.max(lens2)
-        
-        """
-            data if filled with 'fill'
-        """
-        data = np.full((wellsNum,maxFrames,maxShapes),fill,dtype=dtype)
-        
-        """
-            Fill in the data where we have points
-        """
-        for xy in range(wellsNum):
-            for t in range(len(shapeID[xy])):
-                for shapeIndex in range(len(shapeID[xy][t])):
-                    if not_equal(shapeID[xy][t][shapeIndex], self.missingShapeIDValue):
-                        data[xy][t][shapeIndex] = shapeID[xy][t][shapeIndex]
-        
+        if xy is not None:
+            shapeIDCurrentXY = shapeID[xy]
+            
+            """
+                Get number of frames
+            """
+            maxFrames = len(shapeIDCurrentXY)
+            
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens1 = [len(l) for l in shapeIDCurrentXY]
+            maxShapes = np.max(lens1)
+            
+            """
+                data if filled with 'fill'
+            """
+            data = np.full((maxFrames,maxShapes),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for t in range(len(shapeIDCurrentXY)):
+                for shapeIndex in range(len(shapeIDCurrentXY[t])):
+                    if not_equal(shapeIDCurrentXY[t][shapeIndex], self.missingShapeIDValue):
+                        data[t][shapeIndex] = shapeIDCurrentXY[t][shapeIndex]
+        else:
+            
+            """
+                Get number of XY wells
+            """
+            wellsNum = len(shapeID)
+            
+            """
+                Get number of frames
+            """
+            lens1 = [len(l) for l in shapeID]
+            maxFrames = np.max(lens1)
+            
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens2 = [len(l2) for l1 in shapeID for l2 in l1]
+            maxShapes = np.max(lens2)
+            
+            """
+                data if filled with 'fill'
+            """
+            data = np.full((wellsNum,maxFrames,maxShapes),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for xy in range(wellsNum):
+                for t in range(len(shapeID[xy])):
+                    for shapeIndex in range(len(shapeID[xy][t])):
+                        if not_equal(shapeID[xy][t][shapeIndex], self.missingShapeIDValue):
+                            data[xy][t][shapeIndex] = shapeID[xy][t][shapeIndex]
+            
         return data
         
-    def __getShapeZArray(self, fill, dtype):
+    def __getShapeZArray(self, fill, dtype, xy=None):
         shapeZ = self.shapesListFramesZ
         
-        """
-            Get numbr of XY wells
-        """
-        wellsNum = len(shapeZ)
-        
-        """
-            Get number of frames
-        """
-        lens1 = [len(l) for l in shapeZ]
-        maxFrames = np.max(lens1)
-        
-        """
-            Find the maximum number of shapes in any frame
-        """
-        lens2 = [len(l2) for l1 in shapeZ for l2 in l1]
-        maxShapes = np.max(lens2)
-        
-        """
-            data if filled with 'fill'
-        """
-        data = np.full((wellsNum,maxFrames,maxShapes),fill,dtype=dtype)
-        
-        """
-            Fill in the data where we have points
-        """
-        for xy in range(wellsNum):
-            for t in range(len(shapeZ[xy])):
-                for shapeIndex in range(len(shapeZ[xy][t])):
-                    if not_equal(shapeZ[xy][t][shapeIndex], self.missingShapeZValue):
-                        data[xy][t][shapeIndex] = shapeZ[xy][t][shapeIndex]
+        if xy is not None:
+            shapeZCurrentXY = shapeZ[xy]
+            
+            """
+                Get number of frames
+            """
+            maxFrames = len(shapeZCurrentXY)
+            
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens1 = [len(l) for l in shapeZCurrentXY]
+            maxShapes = np.max(lens1)
+            
+            """
+                data if filled with 'fill'
+            """
+            data = np.full((maxFrames,maxShapes),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for t in range(len(shapeZCurrentXY)):
+                for shapeIndex in range(len(shapeZCurrentXY[t])):
+                    if not_equal(shapeZCurrentXY[t][shapeIndex], self.missingShapeIDValue):
+                        data[t][shapeIndex] = shapeZCurrentXY[t][shapeIndex]
+        else:
+            
+            """
+                Get numbr of XY wells
+            """
+            wellsNum = len(shapeZ)
+            
+            """
+                Get number of frames
+            """
+            lens1 = [len(l) for l in shapeZ]
+            maxFrames = np.max(lens1)
+            
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens2 = [len(l2) for l1 in shapeZ for l2 in l1]
+            maxShapes = np.max(lens2)
+            
+            """
+                data if filled with 'fill'
+            """
+            data = np.full((wellsNum,maxFrames,maxShapes),fill,dtype=dtype)
+            
+            """
+                Fill in the data where we have points
+            """
+            for xy in range(wellsNum):
+                for t in range(len(shapeZ[xy])):
+                    for shapeIndex in range(len(shapeZ[xy][t])):
+                        if not_equal(shapeZ[xy][t][shapeIndex], self.missingShapeZValue):
+                            data[xy][t][shapeIndex] = shapeZ[xy][t][shapeIndex]
         
         return data
     
@@ -1607,8 +1760,11 @@ class PointsManager:
     """
         This saves all the points for all the shapes, across all the frames
         to the outputfiilename (*.npy file).
+        
+        This saves the shapes for the xy well 'xy'.
+        If 'xy' is None, we save for the current xy well.
     """
-    def saveShapes(self, outputFilename):
+    def saveShapes(self, outputFilename, xy=None):
         if self.__preEditCurrentXYPointsStored():
             self.__restorePreEditCurrentXYPoints()
         
@@ -1618,10 +1774,13 @@ class PointsManager:
             Are there any shapes to save?
         """
         flagAtLeastOneShape = False
-        for xy in range(len(self.shapesListFrames)):
-            for t in range(len(shapePointsWrite[xy])):
-                if len(self.shapesListFrames[xy][t])>0:
-                    flagAtLeastOneShape = True
+        #for xy in range(len(self.shapesListFrames)):
+        
+        if xy is None:
+            xy = self.currentXYWell
+        for t in range(len(shapePointsWrite[xy])):
+            if len(self.shapesListFrames[xy][t])>0:
+                flagAtLeastOneShape = True
         if not flagAtLeastOneShape:
             print('   saveShapes(): No shapes to save!')
             return
@@ -1631,10 +1790,10 @@ class PointsManager:
         """
         createFolder(ntpath.dirname(outputFilename))
         
-        dataShapes = self.__getShapeArray(self.coordinateFillerValue, np.float64)
-        dataShapeBorder = self.__getShapeBorder(self.coordinateFillerValue, np.float64)
-        dataShapeID = self.__getShapeIDArray(self.coordinateFillerValue, np.int)
-        dataShapeZ = self.__getShapeZArray(self.coordinateFillerValue, np.int)
+        dataShapes = self.__getShapeArray(self.coordinateFillerValue, np.float64, xy=xy)
+        dataShapeBorder = self.__getShapeBorder(self.coordinateFillerValue, np.float64, xy=xy)
+        dataShapeID = self.__getShapeIDArray(self.coordinateFillerValue, np.int, xy=xy)
+        dataShapeZ = self.__getShapeZArray(self.coordinateFillerValue, np.int, xy=xy)
         
         #print('dataShapeBorder: ',dataShapeBorder)
         
@@ -1648,13 +1807,13 @@ class PointsManager:
         if type(dataShapeZ) is not list:
             dataShapeZ = dataShapeZ.tolist()
         data = {'shapes' : dataShapes
+                , 'xy' : int(xy)
                 , 'shape border' : dataShapeBorder
                 , 'shape ID' : dataShapeID
                 , 'shape Z' : dataShapeZ
-                , 'frame skip' : self.frameSkip
+                , 'frame skip' : int(self.frameSkip)
                 , 'organoidTracker version' : self.organoidTrackerVersion
                 , 'saving date & time' : now}
-        #data = np.array(data,dtype=object)
         
         """
             Save to file
@@ -1663,6 +1822,11 @@ class PointsManager:
             outputFilename = outputFilename.replace('.npy','.json')
         if not outputFilename.endswith('.json'):
             outputFilename += '.json'
+            
+        """
+            The output file is just for the current XY!
+        """
+        outputFilename = outputFilename.replace('.json','[xy='+np.str(xy+1)+'].json')
         
         print('   Saving all shape data to: '+outputFilename+'...')
         #np.save(outputFilename, data)
@@ -1706,7 +1870,7 @@ class PointsManager:
         
         return None
         
-    def loadShapes(self, loadDir, inputFilename):
+    def loadShapes(self, loadDir, inputFilename, loadCurrentXYOnly=True):
         DEBUG = False
         
         if DEBUG:
@@ -1718,7 +1882,52 @@ class PointsManager:
             inputFilenameJson = copy.deepcopy(inputFilename)
         if inputFilename.endswith('.npy'):
             inputFilenameJson = inputFilename.replace('.npy', '.json')
-        
+            
+        if loadCurrentXYOnly:
+            """
+                The input file is just for the current XY!
+            """
+            inputFilenameJsonXY = inputFilenameJson.replace('.json','[xy='+np.str(self.currentXYWell+1)+'].json')
+            
+            """
+                Do we have a file for the current XY?
+            """
+            if os.path.exists(inputFilenameJsonXY):
+                inputFilenameJson = inputFilenameJsonXY
+            elif not os.path.exists(inputFilenameJson):
+                """
+                    If we don't have this file do we have the general -- older version -- file?
+                    If not -- raise error!
+                """
+                print("   loadShapes() -- Error: input file doesn't exist!")
+                print('   inputFilename (XY): ',inputFilenameJsonXY)
+                print('   inputFilename: ',inputFilenameJson)
+                return False
+            else:
+                """
+                    If the older version file exists -- extract all XY!
+                """
+                
+                # Load the older file as usual
+                self.loadShapes(loadDir, inputFilename, loadCurrentXYOnly=False)
+                
+                # Get XY list from video
+                xyList = range(self.frameCtrl.getXYWellCount())
+                
+                # Save each XY in a seperate output file
+                for xy in xyList:
+                    # Test if we have shapes for this XY here:
+                    flagAtLeastOneShape = False
+                    for t in range(len(self.shapesListFrames[xy])):
+                        if len(self.shapesListFrames[xy][t])>0:
+                            flagAtLeastOneShape = True
+                    
+                    # If so, then save this XY
+                    if flagAtLeastOneShape:
+                        self.saveShapes(inputFilenameJson, xy=xy)
+            
+                # We are done!
+                return
         # Make sure the file exists:
         if not os.path.exists(inputFilename) and not os.path.exists(inputFilenameJson):
             print("   loadShapes() -- Error: input file doesn't exist!")
@@ -1731,6 +1940,13 @@ class PointsManager:
         else:
             # Load shapes
             data = np.load(inputFilename).item()
+            
+        if loadCurrentXYOnly:
+            if data['xy'] != self.currentXYWell:
+                print("   loadShapes() -- Error: xy of loaded file is not the current xy!")
+                print('   inputFilename: ',inputFilenameJson)
+                return False
+            
         dataShapes = data['shapes']
         dataShapeID = data['shape ID']
         #print('dataShapes.shape = ',dataShapes.shape)
@@ -1779,7 +1995,10 @@ class PointsManager:
             Add fake frames to start if we have too few
         """
         
-        numFrames = dataShapes.shape[1]
+        if loadCurrentXYOnly:
+            numFrames = dataShapes.shape[0]
+        else:
+            numFrames = dataShapes.shape[1]
         print('... Loading #'+np.str(numFrames)+' frames...')
         
         if self.frameCtrl is not None:
@@ -1882,31 +2101,23 @@ class PointsManager:
         self.shapesListFramesID = []
         self.shapesListFramesZ = []
         
-        for xy in range(dataShapes.shape[0]):
-            shapePointsWrite.append([])
-            self.shapesListFramesID.append([])
-            self.shapesListFramesZ.append([])
-            borderPointsWrite.append([])
-            for t in range(dataShapes.shape[1]):
+        if loadCurrentXYOnly:
+            xy = self.currentXYWell
+            for t in range(dataShapes.shape[0]):
+                shapePointsWrite = extendList(shapePointsWrite, xy)
+                borderPointsWrite = extendList(borderPointsWrite, xy)
+                self.shapesListFramesID = extendList(self.shapesListFramesID, xy)
+                self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy)
+                
                 shapePointsWrite[xy].append([])
+                borderPointsWrite[xy].append([])
                 self.shapesListFramesID[xy].append([])
                 self.shapesListFramesZ[xy].append([])
-                borderPointsWrite[xy].append([])
-                for shapeIndex in range(dataShapes.shape[2]):
-                    """
-                    borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex)
-                    if dataShapeBorder is not None:
-                        if len(dataShapeBorder)>xy and len(dataShapeBorder[xy])>t and len(dataShapeBorder[xy][t])>shapeIndex and dataShapeBorder[xy][t][shapeIndex]!=-1:
-                            #borderPointsWrite[xy][t][shapeIndex] = dataShapeBorder[xy][t][shapeIndex]
-                            borderPointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapes[xy][t][shapeIndex][pointIndex],dtype=np.float64)*self.screenFactor,dtype=np.float64)
-                        else:
-                            #borderPointsWrite[xy][t][shapeIndex] = []
-                            pass
-                    """
-                    #if dataShapeID[xy][t][shapeIndex]!=-1:
-                    if dataShapeID[xy][t][shapeIndex]!=-1:
+                
+                for shapeIndex in range(dataShapes.shape[1]):
+                    if dataShapeID[t][shapeIndex]!=-1:
                         self.shapesListFramesID = extendList(self.shapesListFramesID, xy, t, shapeIndex)
-                        self.shapesListFramesID[xy][t][shapeIndex] = dataShapeID[xy][t][shapeIndex]
+                        self.shapesListFramesID[xy][t][shapeIndex] = dataShapeID[t][shapeIndex]
                     else:
                         """
                             Missing shape ID:
@@ -1915,10 +2126,9 @@ class PointsManager:
                         #self.shapesListFramesID[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeIDValue)
                         pass
                     
-                    #if dataShapeZ[xy][t][shapeIndex]!=-1:
-                    if dataShapeZ[xy][t][shapeIndex]!=-1:
+                    if dataShapeZ[t][shapeIndex]!=-1:
                         self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy, t, shapeIndex)
-                        self.shapesListFramesZ[xy][t][shapeIndex] = dataShapeZ[xy][t][shapeIndex]
+                        self.shapesListFramesZ[xy][t][shapeIndex] = dataShapeZ[t][shapeIndex]
                     else:
                         """
                             Missing shape Z value:
@@ -1927,14 +2137,14 @@ class PointsManager:
                         #self.shapesListFramesZ[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeZValue)
                         pass
                     
-                    flagMissingBorder = dataShapeBorder is None or all_equal(dataShapeBorder[xy][t][shapeIndex], self.coordinateFillerValue)
+                    flagMissingBorder = dataShapeBorder is None or all_equal(dataShapeBorder[t][shapeIndex], self.coordinateFillerValue)
                     flagShapeAdded = False # We only add a border if there is a shape added
                     
                     """
                         The points are padded by missing/invalid point entries.
                     """
-                    for pointIndex in range(dataShapes.shape[3]):
-                        if np.all(dataShapes[xy][t][shapeIndex][pointIndex]!=self.coordinateFillerValue):
+                    for pointIndex in range(dataShapes.shape[2]):
+                        if np.all(dataShapes[t][shapeIndex][pointIndex]!=self.coordinateFillerValue):
                             # Only include this shape if there is at least one valid point
                             shapePointsWrite = extendList(shapePointsWrite, xy, t, shapeIndex, pointIndex)
                             #borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex, pointIndex)
@@ -1942,7 +2152,7 @@ class PointsManager:
                             """
                                 Multiply the points by screen factor to get the right position relative to the screen
                             """
-                            shapePointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapes[xy][t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
+                            shapePointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapes[t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
                             #if not flagMissingBorder:
                             #    borderPointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapeBorder[xy][t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
                         else:
@@ -1952,11 +2162,11 @@ class PointsManager:
                         The points are padded by missing/invalid point entries.
                     """
                     if not flagMissingBorder:
-                        for pointIndex in range(dataShapeBorder.shape[3]):
-                            if np.all(dataShapeBorder[xy][t][shapeIndex][pointIndex]!=self.coordinateFillerValue):
+                        for pointIndex in range(dataShapeBorder.shape[2]):
+                            if np.all(dataShapeBorder[t][shapeIndex][pointIndex]!=self.coordinateFillerValue):
                                 borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex, pointIndex)
                                 if not flagMissingBorder:
-                                    borderPointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapeBorder[xy][t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
+                                    borderPointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapeBorder[t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
                             else:
                                 break
                             
@@ -1966,11 +2176,11 @@ class PointsManager:
                             if they are missing
                         """
                         
-                        if dataShapeID[xy][t][shapeIndex]==-1:
+                        if dataShapeID[t][shapeIndex]==-1:
                             self.shapesListFramesID = extendList(self.shapesListFramesID, xy, t, shapeIndex)
                             self.shapesListFramesID[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeIDValue)
                             
-                        if dataShapeZ[xy][t][shapeIndex]==-1:
+                        if dataShapeZ[t][shapeIndex]==-1:
                             self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy, t, shapeIndex)
                             self.shapesListFramesZ[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeZValue)
                             
@@ -1987,33 +2197,33 @@ class PointsManager:
                         if not_equal(borderPointsWrite[xy][t][shapeIndex], self.missingShapeBorder) and any_equal(borderPointsWrite[xy][t][shapeIndex], self.coordinateFillerValue):
                             borderPointsWrite[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeBorder)
         
-        #print('self.shapesListFrames: ',self.shapesListFrames)
-        
-        """
-            Test loaded data for validity:
+            #print('self.shapesListFrames: ',self.shapesListFrames)
+            
+            """
+                Test loaded data for validity:
+                    FALSE: 1. The number of shapes must be the same across all frames
+                    1. You cannot have a shape with 0 points in all frames.
+                    2. Shapes may not have only 1 or 2 points.
+                    3. Each point must be two (x,y) coordinates.
+            """
+            
+            """
                 FALSE: 1. The number of shapes must be the same across all frames
+            """
+            """
+            for xy in range(len(shapePointsWrite)):
+                numShapes = len(shapePointsWrite[xy][0])
+                for t in range(len(shapePointsWrite[xy])):
+                    if len(shapePointsWrite[xy][t])!=numShapes:
+                        print('Number of shapes not equal on all frames!')
+                        sys.exit()
+            """
+            
+            """
                 1. You cannot have a shape with 0 points in all frames.
-                2. Shapes may not have only 1 or 2 points.
-                3. Each point must be two (x,y) coordinates.
-        """
-        
-        """
-            FALSE: 1. The number of shapes must be the same across all frames
-        """
-        """
-        for xy in range(len(shapePointsWrite)):
-            numShapes = len(shapePointsWrite[xy][0])
-            for t in range(len(shapePointsWrite[xy])):
-                if len(shapePointsWrite[xy][t])!=numShapes:
-                    print('Number of shapes not equal on all frames!')
-                    sys.exit()
-        """
-        
-        """
-            1. You cannot have a shape with 0 points in all frames.
-        """
-        dictShapePointsCount = dict()
-        for xy in range(len(shapePointsWrite)):
+            """
+            dictShapePointsCount = dict()
+            xy = self.currentXYWell
             for t in range(len(shapePointsWrite[xy])):
                 for shapeIndex in range(len(shapePointsWrite[xy][t])):
                     shapeID = self.shapesListFramesID[xy][t][shapeIndex]
@@ -2023,10 +2233,10 @@ class PointsManager:
                                 if shapeID not in dictShapePointsCount:
                                     dictShapePointsCount[shapeID] = 0
                                 dictShapePointsCount[shapeID] += 1
-        
-        removeShapeIDs = [shapeID for shapeID in dictShapePointsCount.keys() if dictShapePointsCount[shapeID]==0]
-        
-        for xy in range(len(shapePointsWrite)):
+            
+            removeShapeIDs = [shapeID for shapeID in dictShapePointsCount.keys() if dictShapePointsCount[shapeID]==0]
+            
+            xy = self.currentXYWell
             for t in range(len(shapePointsWrite[xy])):
                 while shapeIndex<len(shapePointsWrite[xy][t]):
                     shapeID = self.shapesListFramesID[xy][t][shapeIndex]
@@ -2038,10 +2248,10 @@ class PointsManager:
                         shapeIndex -= 1
                     
                     shapeIndex += 1
-        
-        countInvalidPointsNum = 0
-        countInvalidCoordinatesNum = 0
-        for xy in range(len(shapePointsWrite)):
+            
+            countInvalidPointsNum = 0
+            countInvalidCoordinatesNum = 0
+            xy = self.currentXYWell
             for t in range(len(shapePointsWrite[xy])):
                 #for shapeIndex in range(len(shapePointsWrite[xy][t])):
                 while shapeIndex<len(shapePointsWrite[xy][t]):
@@ -2072,30 +2282,245 @@ class PointsManager:
                                 print('There is a point with !=2 coordinates!')
                                 countInvalidCoordinatesNum += 1
                     shapeIndex += 1
-        if countInvalidPointsNum>0:
-            print('   We found and removed #'+np.str(countInvalidPointsNum)+' shapes with less than 3 points')
-        if countInvalidCoordinatesNum>0:
-            print('   We found #'+np.str(countInvalidCoordinatesNum)+' invalid coordinates (not 2D)')
-        
-        if loadDir is not None and not screenFactorCorrectionFlag:
-            print('   Saving shapes with screen factor correction...')
-            self.saveShapes(inputFilename)
+            if countInvalidPointsNum>0:
+                print('   We found and removed #'+np.str(countInvalidPointsNum)+' shapes with less than 3 points')
+            if countInvalidCoordinatesNum>0:
+                print('   We found #'+np.str(countInvalidCoordinatesNum)+' invalid coordinates (not 2D)')
+            
+            if loadDir is not None and not screenFactorCorrectionFlag:
+                print('   Saving shapes with screen factor correction...')
+                self.saveShapes(inputFilename)
+                
+                """
+                    After we saved the corrected data, we can remove the flagging file.
+                """
+                #os.remove(screenFactorFilename)
+                
+            """
+                We need to update the screen
+            """
+            self.updateScreenFlag = True
+            #print('shapePointsWrite: ',shapePointsWrite)
+            #print('borderPointsWrite: ',borderPointsWrite)
+            #print('self.shapesListFramesID: ',self.shapesListFramesID)
+            #print('self.shapesListFramesZ: ',self.shapesListFramesZ)
+            
+            return True
+        else:
+            for xy in range(dataShapes.shape[0]):
+                shapePointsWrite.append([])
+                self.shapesListFramesID.append([])
+                self.shapesListFramesZ.append([])
+                borderPointsWrite.append([])
+                for t in range(dataShapes.shape[1]):
+                    shapePointsWrite[xy].append([])
+                    self.shapesListFramesID[xy].append([])
+                    self.shapesListFramesZ[xy].append([])
+                    borderPointsWrite[xy].append([])
+                    for shapeIndex in range(dataShapes.shape[2]):
+                        """
+                        borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex)
+                        if dataShapeBorder is not None:
+                            if len(dataShapeBorder)>xy and len(dataShapeBorder[xy])>t and len(dataShapeBorder[xy][t])>shapeIndex and dataShapeBorder[xy][t][shapeIndex]!=-1:
+                                #borderPointsWrite[xy][t][shapeIndex] = dataShapeBorder[xy][t][shapeIndex]
+                                borderPointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapes[xy][t][shapeIndex][pointIndex],dtype=np.float64)*self.screenFactor,dtype=np.float64)
+                            else:
+                                #borderPointsWrite[xy][t][shapeIndex] = []
+                                pass
+                        """
+                        #if dataShapeID[xy][t][shapeIndex]!=-1:
+                        if dataShapeID[xy][t][shapeIndex]!=-1:
+                            self.shapesListFramesID = extendList(self.shapesListFramesID, xy, t, shapeIndex)
+                            self.shapesListFramesID[xy][t][shapeIndex] = dataShapeID[xy][t][shapeIndex]
+                        else:
+                            """
+                                Missing shape ID:
+                                    add one only if there is a shape added (below)
+                            """
+                            #self.shapesListFramesID[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeIDValue)
+                            pass
+                        
+                        #if dataShapeZ[xy][t][shapeIndex]!=-1:
+                        if dataShapeZ[xy][t][shapeIndex]!=-1:
+                            self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy, t, shapeIndex)
+                            self.shapesListFramesZ[xy][t][shapeIndex] = dataShapeZ[xy][t][shapeIndex]
+                        else:
+                            """
+                                Missing shape Z value:
+                                    add one only if there is a shape added (below)
+                            """
+                            #self.shapesListFramesZ[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeZValue)
+                            pass
+                        
+                        flagMissingBorder = dataShapeBorder is None or all_equal(dataShapeBorder[xy][t][shapeIndex], self.coordinateFillerValue)
+                        flagShapeAdded = False # We only add a border if there is a shape added
+                        
+                        """
+                            The points are padded by missing/invalid point entries.
+                        """
+                        for pointIndex in range(dataShapes.shape[3]):
+                            if np.all(dataShapes[xy][t][shapeIndex][pointIndex]!=self.coordinateFillerValue):
+                                # Only include this shape if there is at least one valid point
+                                shapePointsWrite = extendList(shapePointsWrite, xy, t, shapeIndex, pointIndex)
+                                #borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex, pointIndex)
+                                flagShapeAdded = True
+                                """
+                                    Multiply the points by screen factor to get the right position relative to the screen
+                                """
+                                shapePointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapes[xy][t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
+                                #if not flagMissingBorder:
+                                #    borderPointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapeBorder[xy][t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
+                            else:
+                                break
+                        
+                        """
+                            The points are padded by missing/invalid point entries.
+                        """
+                        if not flagMissingBorder:
+                            for pointIndex in range(dataShapeBorder.shape[3]):
+                                if np.all(dataShapeBorder[xy][t][shapeIndex][pointIndex]!=self.coordinateFillerValue):
+                                    borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex, pointIndex)
+                                    if not flagMissingBorder:
+                                        borderPointsWrite[xy][t][shapeIndex][pointIndex] = np.array(np.array(dataShapeBorder[xy][t][shapeIndex][pointIndex],dtype=np.float64)*pointFactor,dtype=np.float64)
+                                else:
+                                    break
+                                
+                        if flagShapeAdded:
+                            """
+                                Only if there is a shape added do we add an empty ID / Z
+                                if they are missing
+                            """
+                            
+                            if dataShapeID[xy][t][shapeIndex]==-1:
+                                self.shapesListFramesID = extendList(self.shapesListFramesID, xy, t, shapeIndex)
+                                self.shapesListFramesID[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeIDValue)
+                                
+                            if dataShapeZ[xy][t][shapeIndex]==-1:
+                                self.shapesListFramesZ = extendList(self.shapesListFramesZ, xy, t, shapeIndex)
+                                self.shapesListFramesZ[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeZValue)
+                                
+                        if flagMissingBorder and flagShapeAdded:
+                            """
+                                Missing shape border
+                            """
+                            borderPointsWrite = extendList(borderPointsWrite, xy, t, shapeIndex)
+                            borderPointsWrite[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeBorder)
+                        """
+                            If the border contains an invalid point, set as missing shape border
+                        """
+                        if len(borderPointsWrite[xy][t])==shapeIndex+1:
+                            if not_equal(borderPointsWrite[xy][t][shapeIndex], self.missingShapeBorder) and any_equal(borderPointsWrite[xy][t][shapeIndex], self.coordinateFillerValue):
+                                borderPointsWrite[xy][t][shapeIndex] = copy.deepcopy(self.missingShapeBorder)
+            
+            #print('self.shapesListFrames: ',self.shapesListFrames)
             
             """
-                After we saved the corrected data, we can remove the flagging file.
+                Test loaded data for validity:
+                    FALSE: 1. The number of shapes must be the same across all frames
+                    1. You cannot have a shape with 0 points in all frames.
+                    2. Shapes may not have only 1 or 2 points.
+                    3. Each point must be two (x,y) coordinates.
             """
-            #os.remove(screenFactorFilename)
             
-        """
-            We need to update the screen
-        """
-        self.updateScreenFlag = True
-        #print('shapePointsWrite: ',shapePointsWrite)
-        #print('borderPointsWrite: ',borderPointsWrite)
-        #print('self.shapesListFramesID: ',self.shapesListFramesID)
-        #print('self.shapesListFramesZ: ',self.shapesListFramesZ)
-        
-        return True
+            """
+                FALSE: 1. The number of shapes must be the same across all frames
+            """
+            """
+            for xy in range(len(shapePointsWrite)):
+                numShapes = len(shapePointsWrite[xy][0])
+                for t in range(len(shapePointsWrite[xy])):
+                    if len(shapePointsWrite[xy][t])!=numShapes:
+                        print('Number of shapes not equal on all frames!')
+                        sys.exit()
+            """
+            
+            """
+                1. You cannot have a shape with 0 points in all frames.
+            """
+            dictShapePointsCount = dict()
+            for xy in range(len(shapePointsWrite)):
+                for t in range(len(shapePointsWrite[xy])):
+                    for shapeIndex in range(len(shapePointsWrite[xy][t])):
+                        shapeID = self.shapesListFramesID[xy][t][shapeIndex]
+                        if not_equal(shapeID, self.missingShapeIDValue):
+                            for point in shapePointsWrite[xy][t][shapeIndex]:
+                                if not any_equal(point, self.coordinateFillerValue):
+                                    if shapeID not in dictShapePointsCount:
+                                        dictShapePointsCount[shapeID] = 0
+                                    dictShapePointsCount[shapeID] += 1
+            
+            removeShapeIDs = [shapeID for shapeID in dictShapePointsCount.keys() if dictShapePointsCount[shapeID]==0]
+            
+            for xy in range(len(shapePointsWrite)):
+                for t in range(len(shapePointsWrite[xy])):
+                    while shapeIndex<len(shapePointsWrite[xy][t]):
+                        shapeID = self.shapesListFramesID[xy][t][shapeIndex]
+                        if shapeID in removeShapeIDs:
+                            del shapePointsWrite[xy][t][shapeIndex]
+                            del borderPointsWrite[xy][t][shapeIndex]
+                            del self.shapesListFramesID[xy][t][shapeIndex]
+                            del self.shapesListFramesZ[xy][t][shapeIndex]
+                            shapeIndex -= 1
+                        
+                        shapeIndex += 1
+            
+            countInvalidPointsNum = 0
+            countInvalidCoordinatesNum = 0
+            for xy in range(len(shapePointsWrite)):
+                for t in range(len(shapePointsWrite[xy])):
+                    #for shapeIndex in range(len(shapePointsWrite[xy][t])):
+                    while shapeIndex<len(shapePointsWrite[xy][t]):
+                        if shapeIndex>len(shapePointsWrite[xy][t])-1:
+                            break
+                        
+                        """
+                            Shapes may not have only 1 or 2 points.
+                        """
+                        if len(shapePointsWrite[xy][t][shapeIndex])>0 and len(shapePointsWrite[xy][t][shapeIndex])<3:
+                            #print('There is a shape with less than 3 points!')
+                            countInvalidPointsNum += 1
+                            
+                            """
+                                Remove offending shape from all frames!
+                            """
+                            del shapePointsWrite[xy][t][shapeIndex]
+                            del borderPointsWrite[xy][t][shapeIndex]
+                            del self.shapesListFramesID[xy][t][shapeIndex]
+                            del self.shapesListFramesZ[xy][t][shapeIndex]
+                            shapeIndex -= 1
+                        else:
+                            """
+                                4. Each point must be two (x,y) coordinates.
+                            """
+                            for pointIndex in range(len(shapePointsWrite[xy][t][shapeIndex])):
+                                if len(shapePointsWrite[xy][t][shapeIndex][pointIndex])!=2:
+                                    print('There is a point with !=2 coordinates!')
+                                    countInvalidCoordinatesNum += 1
+                        shapeIndex += 1
+            if countInvalidPointsNum>0:
+                print('   We found and removed #'+np.str(countInvalidPointsNum)+' shapes with less than 3 points')
+            if countInvalidCoordinatesNum>0:
+                print('   We found #'+np.str(countInvalidCoordinatesNum)+' invalid coordinates (not 2D)')
+            
+            if loadDir is not None and not screenFactorCorrectionFlag:
+                print('   Saving shapes with screen factor correction...')
+                self.saveShapes(inputFilename)
+                
+                """
+                    After we saved the corrected data, we can remove the flagging file.
+                """
+                #os.remove(screenFactorFilename)
+                
+            """
+                We need to update the screen
+            """
+            self.updateScreenFlag = True
+            #print('shapePointsWrite: ',shapePointsWrite)
+            #print('borderPointsWrite: ',borderPointsWrite)
+            #print('self.shapesListFramesID: ',self.shapesListFramesID)
+            #print('self.shapesListFramesZ: ',self.shapesListFramesZ)
+            
+            return True
     
     def setScreenFactor(self, screenFactor):
         self.screenFactor = screenFactor
@@ -2128,17 +2553,17 @@ class PointsManager:
         createFolder(ntpath.dirname(outputFilename))
         createFolder(ntpath.dirname(outputExcelFilename))
         
-        areas = self.__getShapeAreas(sortedByID=True)
+        areas = self.__getShapeAreas(sortedByID=True, xy=self.currentXYWell)
         #print('areas: ',areas)
         
         """
             Save to file
         """
         if self.umpixel is not None:
-            outputFilename += '[unit=um^2]'
+            outputFilename += '[unit=um^2][xy='+np.str(self.currentXYWell+1)+']'
             outputExcelFilename += '[unit=um^2]'
         else:
-            outputFilename += '[unit=pixel^2]'
+            outputFilename += '[unit=pixel^2][xy='+np.str(self.currentXYWell+1)+']'
             outputExcelFilename += '[unit=pixel^2]'    
         print('   Saving all shape areas to: '+outputFilename+'.npy...')
         np.save(outputFilename, areas)
@@ -2151,52 +2576,85 @@ class PointsManager:
         """
             -1 here is the value to be ignored in the matrix...
         """
-        self.__shapeAreasToExcel(outputExcelFilename, areas, self.areaFillerValue)
+        self.__shapeAreasToExcel(outputExcelFilename, areas, self.areaFillerValue, xy=self.currentXYWell)
         print('   Done!')
-        
-    def __getShapeAreas(self, sortedByID=False):
-        if sortedByID:
-            shapes = self.__getShapesSortedByID(dtype=np.float64)
-        else:
-            shapes = self.getShapePointsWrite()
-        #print('Current well #'+np.str(self.currentXYWell))
-        #print('shapes: ',shapes)
-        #print('shapes[0] len = ',len(shapes[0]))
-        #print('shapes[0][80] = ',shapes[0][80])
-        
-        """
-            Get numbr of XY wells
-        """
-        wellsNum = len(shapes)
-        
-        """
-            Get number of frames
-        """
-        lens1 = [len(l) for l in shapes]
-        maxFrames = np.max(lens1)
-        #print('max frames: ',maxFrames)
     
-        """
-            Find the maximum number of shapes in any frame
-        """
-        lens2 = [len(l2) for l1 in shapes for l2 in l1]
-        maxShapes = np.max(lens2)
-        
-        """
-            Find areas
-        """
-        #shapePointsCurrentXYRead = self.getShapePointsCurrentXYRead()
-        areas = np.full((wellsNum,maxFrames,maxShapes), self.areaFillerValue, dtype=np.int64)
-        for xy in range(wellsNum):
-            for t in range(len(shapes[xy])):
-                for shapeIndex in range(len(shapes[xy][t])):
-                    shapePoints = shapes[xy][t][shapeIndex]
+    """
+        If xy is None, returns areas for all xy.
+        If xy is not None, returns areas only for that xy.
+    """
+    def __getShapeAreas(self, sortedByID=False, xy=None):
+        if xy is not None:
+            if sortedByID:
+                shapesXY = self.__getShapesSortedByID(dtype=np.float64, xy=xy)
+            else:
+                shapesXY = self.getShapePointsWrite()[xy]
+            
+            """
+                Get number of frames
+            """
+            maxFrames = len(shapesXY)
+            
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens1 = [len(l) for l in shapesXY]
+            maxShapes = np.max(lens1)
+            
+            """
+                Find areas
+            """
+            #shapePointsCurrentXYRead = self.getShapePointsCurrentXYRead()
+            areas = np.full((maxFrames,maxShapes), self.areaFillerValue, dtype=np.int64)
+            for t in range(len(shapesXY)):
+                for shapeIndex in range(len(shapesXY[t])):
+                    shapePoints = shapesXY[t][shapeIndex]
                     if len(shapePoints)>0:
                         area = self.__getShapeArea(shapePoints,self.shapeType(shapePoints), self.screenFactor)
-                        areas[xy][t][shapeIndex] = area
-                        if areas[xy][t][shapeIndex]==0:
-                            areas[xy][t][shapeIndex] = self.areaFillerValue
-        return areas
+                        areas[t][shapeIndex] = area
+                        if areas[t][shapeIndex]==0:
+                            areas[t][shapeIndex] = self.areaFillerValue
+            return areas
+            
+        else:
+            if sortedByID:
+                shapes = self.__getShapesSortedByID(dtype=np.float64)
+            else:
+                shapes = self.getShapePointsWrite()
+            
+            """
+                Get numbr of XY wells
+            """
+            wellsNum = len(shapes)
+            
+            """
+                Get number of frames
+            """
+            lens1 = [len(l) for l in shapes]
+            maxFrames = np.max(lens1)
+            #print('max frames: ',maxFrames)
+        
+            """
+                Find the maximum number of shapes in any frame
+            """
+            lens2 = [len(l2) for l1 in shapes for l2 in l1]
+            maxShapes = np.max(lens2)
+            
+            """
+                Find areas
+            """
+            #shapePointsCurrentXYRead = self.getShapePointsCurrentXYRead()
+            areas = np.full((wellsNum,maxFrames,maxShapes), self.areaFillerValue, dtype=np.int64)
+            for xy in range(wellsNum):
+                for t in range(len(shapes[xy])):
+                    for shapeIndex in range(len(shapes[xy][t])):
+                        shapePoints = shapes[xy][t][shapeIndex]
+                        if len(shapePoints)>0:
+                            area = self.__getShapeArea(shapePoints,self.shapeType(shapePoints), self.screenFactor)
+                            areas[xy][t][shapeIndex] = area
+                            if areas[xy][t][shapeIndex]==0:
+                                areas[xy][t][shapeIndex] = self.areaFillerValue
+            return areas
         
     """
     def loadShapeAreas(self, inputFilename):
@@ -2230,37 +2688,111 @@ class PointsManager:
         (first area on first frame is of he same organoid that the 1st area of the
         second frame belongs to and so on)
     """
-    def __shapeAreasToExcel(self, outputExcelFilename, areas, invalidValue):
+    def __shapeAreasToExcel(self, outputExcelFilename, areas, invalidValue, xy=None):
         """
             Don't write invalid data
         """
         areas = np.array(areas, dtype=object)
         areas[areas==invalidValue] = ''
-
-        """
-            Create data to write
-        """
-        for xy in range(areas.shape[0]):
+        
+        if xy is None:
+            """
+                Create data to write
+            """       
+            for xy in range(areas.shape[0]):
+                flagEmpty = True
+                for t in range(areas.shape[1]):
+                    if np.any(areas[xy][t]!=''):
+                        flagEmpty = False
+                        break
+                
+                if flagEmpty:
+                    continue
+                
+                dataDict = dict()
+                t = 0
+                #print('self.frameCtrl.getFrameSkip(): ',self.frameCtrl.getFrameSkip())
+                for i in range(0,areas.shape[1],self.frameCtrl.getFrameSkip()):
+                    dataDict['t='+np.str(t)] = areas[xy][i]
+                    t += 1
+                df = pd.DataFrame(dataDict)
+                df = df.reindex(natsorted(df.columns), axis=1)
+                
+                numTimes = t
+                numOrganoids = np.max([np.count_nonzero(areas[xy][t]!='') for t in range(len(areas[xy]))])
+                
+                """
+                    Write data
+                """
+                outputFilename = outputExcelFilename+'_XY_'+np.str(int(xy)+1)+'.xlsx'
+                print('   Saving excel XY='+np.str(int(xy)+1))
+                dataSheetName = 'XY '+np.str(int(xy)+1)
+                
+                writer = pd.ExcelWriter(outputFilename, engine='xlsxwriter')
+                df.to_excel(writer,dataSheetName)
+                #writer.save()
+                
+                """
+                import xlsxwriter
+                workbook  = xlsxwriter.Workbook(outputFilename)
+                dataSheetName = 'XY '+np.str(int(xy)+1)
+                worksheet = workbook.add_worksheet(dataSheetName)
+                """
+                
+                """
+                    Create plots sheet
+                """
+                #print('numOrganoids: '+np.str(numOrganoids))
+                #print('numTimes: '+np.str(numTimes))
+                if numOrganoids<10:
+                    #plotSheetName = 'XY '+np.str(int(xy)+1)+' plots'
+                    workbook = writer.book
+                    #worksheet = workbook.add_worksheet(plotSheetName)
+                    
+                    worksheet = writer.sheets[dataSheetName]
+                    chart = workbook.add_chart({'type': 'scatter'})
+                    
+                    # Configure the series of the chart from the dataframe data.
+                    for row in range(1,numOrganoids+1):
+                        chart.add_series({
+                            'name':       [dataSheetName, row, 0],
+                            'categories': [dataSheetName, 1, 0, numTimes, 0],
+                            'values':     [dataSheetName, row, 1, row, numTimes],
+                            'marker':     {'type': 'circle', 'size': 4},
+                        })
+                    
+                    # Configure the chart axes.
+                    chart.set_x_axis({'name': 't'})
+                    chart.set_y_axis({'name': 'organoid size', 'major_gridlines': {'visible': False}})
+                
+                    # Insert the chart into the worksheet.
+                    worksheet.insert_chart('D13', chart)
+                
+                writer.save()
+        else:
+            """
+                Create data to write
+            """
             flagEmpty = True
-            for t in range(areas.shape[1]):
-                if np.any(areas[xy][t]!=''):
+            for t in range(areas.shape[0]):
+                if np.any(areas[t]!=''):
                     flagEmpty = False
                     break
             
             if flagEmpty:
-                continue
+                return
             
             dataDict = dict()
             t = 0
             #print('self.frameCtrl.getFrameSkip(): ',self.frameCtrl.getFrameSkip())
-            for i in range(0,areas.shape[1],self.frameCtrl.getFrameSkip()):
-                dataDict['t='+np.str(t)] = areas[xy][i]
+            for i in range(0,areas.shape[0],self.frameCtrl.getFrameSkip()):
+                dataDict['t='+np.str(t)] = areas[i]
                 t += 1
             df = pd.DataFrame(dataDict)
             df = df.reindex(natsorted(df.columns), axis=1)
             
             numTimes = t
-            numOrganoids = np.max([np.count_nonzero(areas[xy][t]!='') for t in range(len(areas[xy]))])
+            numOrganoids = np.max([np.count_nonzero(areas[t]!='') for t in range(len(areas))])
             
             """
                 Write data
@@ -2308,7 +2840,7 @@ class PointsManager:
             
                 # Insert the chart into the worksheet.
                 worksheet.insert_chart('D13', chart)
-            
+                
             writer.save()
             
         
