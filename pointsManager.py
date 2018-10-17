@@ -33,7 +33,10 @@ from expandEllipse import expandEllipseUntillPoint
 from equality import equal, all_equal, any_equal, not_equal, any_not_equal
 #from exportToUNet import exportToUNet
 import json
-from bson import json_util
+try:
+    from bson import json_util
+except Exception:
+    import json_util
 #from shapeData import ShapeData
 
 def drawCross(pic,x,y,rgb=(255,0,0),L=10):
@@ -1832,7 +1835,7 @@ class PointsManager:
         #np.save(outputFilename, data)
         with open(outputFilename, 'w') as outfile:
             json.dump(data, outfile, default=json_util.default)
-        
+            
         print('   Done!')
         
     """

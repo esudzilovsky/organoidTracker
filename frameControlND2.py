@@ -138,6 +138,9 @@ class FrameControlND2:
     def saveFrameSkip(self, nd2Filename):
         frameSkipFName = self.getFrameSkipPathnames(nd2Filename)
         np.save(frameSkipFName, self.readEveryNthFrame)
+        
+    def getZLevelCount(self):
+        return len(self.zLevels)
     
     def setInputVideo(self, nd2Filename, readEveryNthFrame):
         if os.path.isdir(nd2Filename):
